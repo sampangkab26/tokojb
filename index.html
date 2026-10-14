@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jaya Bersama</title>
+
+<!--
+  ===========================================================================
+  CARA PAKAI
+  ===========================================================================
+  1. Ganti nilai APP_URL di bawah ini dengan URL Web App GAS Anda,
+     contoh: "https://script.google.com/macros/s/AKfycb.../exec"
+     (Ambil dari Apps Script Editor > Deploy > Manage deployments)
+
+  2. Upload file HTML ini ke hosting APAPUN selain domain script.google.com,
+     misalnya:
+       - GitHub Pages (gratis)
+       - Netlify / Vercel (gratis)
+       - Domain/subdomain kantor Anda sendiri (mis. dokren.namaopd.go.id)
+
+  3. Bagikan URL hosting tersebut ke pengguna, BUKAN URL script.google.com.
+     Karena aplikasi ditanam lewat <iframe>, banner "This application was
+     created by a Google Apps Script user" tidak akan muncul -- banner itu
+     hanya tampil kalau URL script.google.com dibuka langsung sebagai
+     halaman utama, bukan saat ditanam sebagai iframe dari domain lain.
+
+  4. Syarat di sisi Code.gs (doGet) SUDAH terpenuhi di aplikasi Anda:
+       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+     Ini WAJIB ada supaya Google mengizinkan aplikasi ditanam via iframe.
+  ===========================================================================
+-->
+
+<style>
+    :root {
+        --app-url: "https://script.google.com/macros/s/AKfycbxoImcxQRsqwlbV3ID9HYm-UbCCFHfGA4dUktAbsygr1KPf8v9FZy9_G3Kz1XD8GwBEFQ/exec";
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #e0f2fe 100%);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    #app-frame {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    }
+    #app-frame.loaded { opacity: 1; }
+
+    /* Layar loading sementara iframe memuat aplikasi GAS */
+    #loading-screen {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #e0f2fe 100%);
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+        z-index: 10;
+    }
+    #loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .spinner {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 4px solid rgba(56, 189, 248, 0.25);
+        border-top-color: #0284c7;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-screen p {
+        color: #0369a1;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    /* Tampil kalau APP_URL belum diisi */
+    #config-warning {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: #fff7ed;
+        z-index: 20;
+        padding: 24px;
+        text-align: center;
+    }
+    #config-warning .box {
+        max-width: 480px;
+        background: #ffffff;
+        border: 1px solid #fed7aa;
+        border-radius: 16px;
+        padding: 28px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+    #config-warning h2 { color: #c2410c; font-size: 18px; margin-bottom: 10px; }
+    #config-warning p { color: #7c2d12; font-size: 14px; line-height: 1.6; }
+    #config-warning code {
+        display: block;
+        margin-top: 12px;
+        background: #fff7ed;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #9a3412;
+        word-break: break-all;
+    }
+</style>
+</head>
+<body>
+
+    <!-- ============ GANTI URL DI BAWAH INI ============ -->
+    <script>
+        const APP_URL = "https://script.google.com/macros/s/AKfycby-7UxtDDGgSpWLP344hUkbttYSI1nGuiUb4g0j3Zo-QH1GopI00pORmgfslmnJejM4/exec";
+    </script>
+    <!-- ================================================= -->
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p>Memuat Aplikasi</p>
+    </div>
+
+    <div id="config-warning">
+        <div class="box">
+            <h2>⚠️ URL Web App belum diisi</h2>
+            <p>Buka file ini di editor, cari variabel <b>APP_URL</b> di bagian
+            <code>&lt;script&gt;</code>, lalu ganti dengan URL Web App GAS Anda
+            yang berakhiran <code>/exec</code>.</p>
+        </div>
+    </div>
+
+    <iframe id="app-frame" title="Landing-Page" allow="clipboard-write"></iframe>
+
+    <script>
+        (function () {
+            const frame = document.getElementById('app-frame');
+            const loadingScreen = document.getElementById('loading-screen');
+            const configWarning = document.getElementById('config-warning');
+
+            if (!APP_URL || APP_URL.indexOf('GANTI_DENGAN_ID_DEPLOYMENT_ANDA') !== -1) {
+                loadingScreen.classList.add('hidden');
+                configWarning.style.display = 'flex';
+                return;
+            }
+
+            frame.addEventListener('load', function () {
+                loadingScreen.classList.add('hidden');
+                frame.classList.add('loaded');
+            });
+
+            frame.src = APP_URL;
+
+            // Jaga-jaga kalau event 'load' iframe cross-origin tidak terpicu di browser tertentu
+            setTimeout(function () {
+                loadingScreen.classList.add('hidden');
+                frame.classList.add('loaded');
+            }, 6000);
+        })();
+    </script>
+
+</body>
+</html>
